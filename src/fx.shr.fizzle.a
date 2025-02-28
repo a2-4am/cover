@@ -1,0 +1,64 @@
+;license:MIT
+;(c) 2019-2025 by qkumba/4am/John Brooks
+
+shr_fx_addrs = $80                   ; $80 bytes
+
+SHRFizzle
+         jsr   SwapZP
+
+         +COPY_TO_0 shr_fx_start, shr_fx_end
+
+         ; create address lookup table
+         lda   #$A0
+         tax
+         tay
+-        dey
+         sty   shr_fx_addrs-$21, x
+         dex
+         bne   -
+         ;X=Y=0
+
+         ; copy SCB and palettes
+         sta   WRITEAUXMEM
+-        lda   $9D00, x
+         sta   $9D00, x
+         lda   $9E00, x
+         sta   $9E00, x
+         lda   $9F00, x
+         sta   $9F00, x
+         inx
+         bne   -
+
+         ;WRITEAUXMEM still active
+         ;X=Y=0
+         jsr   $0
+         sta   WRITEMAINMEM
+         jmp   SwapZP
+
+shr_fx_start
+!pseudopc 0 {
+         ;X=Y=0
+@loop    txa
+@loop1   eor   #$60                  ; LFSR form 0x6000 with period 32767
+         tax
+@loop2   lda   shr_fx_addrs, x
+         sta   <@src+2
+@src     lda   $FD00, y              ; SMC high byte
+         sta   (@src+1), y
+         txa
+         lsr
+         tax
+         tya
+         ror
+         tay
+         bcc   @loop2
+         bne   @loop
+         bit   KBD
+         bmi   @exit
+         txa
+         bne   @loop1
+         lda   (@src+1), y           ; last lousy byte (because LFSR never hits 0)
+         sta   (@src+1), y
+@exit    rts
+}
+shr_fx_end

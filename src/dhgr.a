@@ -1,0 +1,75 @@
+;license:MIT
+;(c) 2025 by 4am
+;
+
+parm_dhgr_open
+         !byte 3
+         !word dhgr_filename
+         !word PRODOS_BUFFER
+         !byte 0
+
+parm_dhgr_read1
+         !byte 4
+         !byte 1
+         !word $8000
+         !word $2000
+         !word 0
+
+parm_dhgr_read2
+         !byte 4
+         !byte 1
+         !word $4000
+         !word $2000
+         !word 0
+
+LoadDHGR
+         jsr   PRODOS_MLI
+         !byte CMD_OPEN
+         !word parm_dhgr_open
+         bcs   +
+         jsr   PRODOS_MLI
+         !byte CMD_READ
+         !word parm_dhgr_read1
+         bcs   +
+         jsr   PRODOS_MLI
+         !byte CMD_READ
+         !word parm_dhgr_read2
++        php
+         jsr   CloseAllFiles
+         plp
+         bcs   @exit
+         jsr   BlankDHGR
+         jsr   DHGRMode
+         jsr   DHGRFizzle
+         clc
+@exit    rts
+
+BlankDHGR
+         jsr   ClearHGR1
+         sta   WRITEAUXMEM
+         jsr   ClearHGR1
+         sta   WRITEMAINMEM
+         rts
+
+DHGRMode
+         ; magic sequence to set colour mode on an RGB card
+         ; SET80VID clears the RGB-card shift-register
+         ; DHIRESON/OFF shifts that bit into the mode register
+         ; we do that twice because the mode register is two bits wide
+         ; we need mode 00 for colour
+         jsr   WaitForVBL
+         sta   SET80VID
+         sta   DHIRESON
+         sta   DHIRESOFF
+         sta   DHIRESON
+         sta   DHIRESOFF
+         sta   DHIRESON              ; then turn DHGR on
+         jsr   UnwaitForVBL
+         ; /!\ execution falls through here to HGRMode
+HGRMode
+         bit   PAGE1                 ; C054
+         bit   HIRESGFX              ; C057
+         bit   FULLGFX               ; C052
+         bit   GFXMODE               ; C050
+         clc
+         rts

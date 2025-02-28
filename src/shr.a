@@ -1,0 +1,60 @@
+;license:MIT
+;(c) 2025 by 4am
+;
+
+parm_shr_open
+         !byte 3
+         !word shr_filename
+         !word PRODOS_BUFFER
+         !byte 0
+
+parm_shr_read
+         !byte 4
+         !byte 1
+         !word $2000
+         !word $8000
+         !word 0
+
+CloseAllFiles
+         jsr   PRODOS_MLI
+         !byte CMD_CLOSE
+         !word +
+         rts
++        !byte 1
+         !byte 0
+
+LoadSHR
+         jsr   PRODOS_MLI
+         !byte CMD_OPEN
+         !word parm_shr_open
+         bcs   +
+         jsr   PreSHRMode
+         sta   WRITEAUXMEM
+         ldx   #$80
+         jsr   ClearMem
+         sta   WRITEMAINMEM
+         jsr   PRODOS_MLI
+         !byte CMD_READ
+         !word parm_shr_read
++        php
+         jsr   CloseAllFiles
+         plp
+         bcs   @exit
+         jsr   SHRMode
+         jsr   SHRFizzle
+         clc
+@exit    rts
+
+PreSHRMode
+         lda   #%01000001            ; enable linearize
+         sta   NEWVIDEO
+
+         lda   #%00000000            ; enable auxmem-to-bank-E1 shadowing
+         sta   SHADOW                ; note this may run on 8-bit hardware w/VidHD
+         sta   SHADOW                ; where all $C03x switches are aliases for $C030
+         rts                         ; so we hit them back to back to minimize audible clicking
+
+SHRMode
+         lda   #%11000001            ; turn on SHR mode
+         sta   NEWVIDEO
+         rts

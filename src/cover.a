@@ -1,0 +1,112 @@
+;license:MIT
+;(c) 2025 by 4am
+;
+!cpu 6502
+!ct "src/lcase.ct"
+!to "build/COVER.SYSTEM#FF2000",plain
+*=$2000
+
+         !source "src/constants.a"   ; no code
+         !source "src/macros.a"      ; no code
+         !source "src/cover.init.a"  ; one-time initialization code, exits via Start
+         !source "src/hw.vbl.init.a"
+         !source "src/hw.accel.a"
+         !source "src/hw.vidhd.a"
+
+FirstMover
+!pseudopc RELOC {
+Start
+         jsr   DisableAccelerator
+
+         lda   MachineStatus
+         and   #SUPPORTS_SHR
+         beq   @maybe_load_dhgr
+         jsr   LoadSHR
+         bcc   @loaded
+@maybe_load_dhgr
+         lda   MachineStatus
+         and   #SUPPORTS_DHGR
+         beq   @maybe_load_hgr
+         jsr   LoadDHGR
+         bcc   @loaded
+@maybe_load_hgr
+         jsr   LoadHGR
+         bcs   @exit
+@loaded
+         ldx   #$20
+         jsr   LongWaitForKeyWithTimeout
+
+@exit
+         lda   MachineStatus
+         and   #SUPPORTS_SHR
+         beq   @maybe_exit_dhgr
+         lda   #%00000001            ; turn off SHR mode
+         sta   NEWVIDEO
+         lda   #%00101000            ; restore shadowing to powerup value
+         sta   SHADOW
+         sta   SHADOW
+@maybe_exit_dhgr
+         lda   MachineStatus
+         and   #SUPPORTS_DHGR
+         beq   @exit_hgr
+         ; turn off DHGR mode
+         jsr   WaitForVBL
+         sta   DHIRESOFF
+         sta   CLR80VID              ; /!\ order of operations matters for RGB card
+         jsr   UnwaitForVBL
+@exit_hgr
+         lda   TEXTMODE
+
+         ; restore border and text colors (IIgs only)
+         lda   MachineStatus
+         and   #IS_IIGS
+         beq   @NotGS
+         lda   SaveClockCtl
+         sta   CLOCKCTL
+         lda   SaveTBColor
+         sta   TBCOLOR
+@NotGS
+         jsr   EnableAccelerator
+
+         jsr   PRODOS_MLI
+         !byte CMD_OPEN
+         !word parm_next_open
+         bcs   +
+         jsr   PRODOS_MLI
+         !byte CMD_READ
+         !word parm_next_read
++        php
+         jsr   CloseAllFiles
+         plp
+         bcs   @fallback_quit
+         jmp   $2000
+@fallback_quit
+         jsr   PRODOS_MLI
+         !byte CMD_QUIT
+         !word +
++        !byte 4
+
+parm_next_open
+         !byte 3
+         !word next_filename
+         !word PRODOS_BUFFER
+         !byte 0
+parm_next_read
+         !byte 4
+         !byte 1
+         !word $2000
+         !word $FFFF
+         !word 0
+
+         !source "src/paths.a"
+         !source "src/wait.a"
+         !source "src/mem.a"
+         !source "src/shr.a"
+         !source "src/dhgr.a"
+         !source "src/hgr.a"
+         !source "src/hw.vbl.a"
+         !source "src/fx.shr.fizzle.a"
+         !source "src/fx.dhgr.2bit.fizzle.a"
+         !source "src/fx.hgr.2bit.fizzle.a"
+}
+LastMover

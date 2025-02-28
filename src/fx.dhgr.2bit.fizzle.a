@@ -1,0 +1,106 @@
+;license:MIT
+;(c) 2017-2025 by qkumba/4am/John Brooks
+
+dhgr_fx_addrs     = $BC00            ; $100 bytes, page-aligned, duplicated in auxmem
+dhgr_fx_copymasks = $BD00            ; $100 bytes, page-aligned, duplicated in auxmem
+
+DHGRFizzle
+         jsr   SwapZP
+         +COPY_TO_0 dhgr_fx_start, dhgr_fx_end
+         ;X=0
+         ;A=3
+--       ldy   #$40                  ; create identical copymask tables in main and aux memory
+         ora   #%10000000
+-        sta   dhgr_fx_copymasks, x
+         sta   WRITEAUXMEM
+         sta   dhgr_fx_copymasks, x
+         sta   WRITEMAINMEM
+         inx
+         dey
+         bne   -
+         asl
+         asl
+         bne   --
+         clc
+--       ldy   #$20                  ; create identical address tables in main and aux memory
+         tya
+-        sta   dhgr_fx_addrs, x
+         sta   WRITEAUXMEM
+         sta   dhgr_fx_addrs, x
+         sta   WRITEMAINMEM
+         eor   #$A0
+         sta   dhgr_fx_addrs+1, x
+         sta   WRITEAUXMEM
+         sta   dhgr_fx_addrs+1, x
+         sta   WRITEMAINMEM
+         eor   #$A0
+         adc   #1
+         inx
+         inx
+         dey
+         bne   -
+         txa
+         bne   --
+         jsr   $1
+         jmp   SwapZP
+
+dhgr_fx_start
+!pseudopc 0 {
+         !byte %00000011
+; X,Y=0 on entry to LFSR
+         sta   STOREON               ; 80STORE mode for wacky r/w control over graphics page 1
+@loop    txa
+@loop1   eor   #$B4                  ; LFSR form 0xB400 with period 65535
+         tax                         ; X is LFSR high byte, Y is LFSR low byte
+@loop2   lda   dhgr_fx_addrs, x      ; which means X is the index into the base address lookup table
+         bmi   @aux                  ; and Y is the offset from the base address
+         sta   PAGE1                 ; switch $2000..$3FFF to mainmem read/write (really!)
+         sta   <@dst+2
+         eor   #$60
+         sta   <@src+2
+         lda   (<@dst+1), y
+@src     eor   $FD00, y              ; merge source and destination bits (SMC high byte)
+         and   dhgr_fx_copymasks, x  ; isolate the bits to replace, zero the rest
+         eor   (<@dst+1), y          ; unmerge source and destination bits, leaves 'to keep' destination bits intact
+@dst     sta   $FD00, y              ; write the result (SMC high byte)
+         txa
+         lsr
+         tax
+         tya
+         ror
+         tay
+         bcc   @loop2                ; C modified by ror
+         bne   @loop                 ; Z modified by tay
+         lda   KBD
+         bmi   @exit
+         txa
+         bne   @loop1
+         lda   (@src+1), y           ; last lousy byte (because LFSR never hits 0)
+         sta   (@dst+1), y
+@exit    sta   STOREOFF              ; 80STORE mode off, back to normal
+         rts
+
+@aux     sta   PAGE2                 ; switch $2000..$3FFF to auxmem read/write (really!)
+         sta   <@auxsrc+2
+         eor   #$A0
+         sta   <@auxdst+2
+         lda   (<@auxdst+1), y
+@auxsrc  eor   $FD00, y              ; SMC high byte
+         and   dhgr_fx_copymasks, x
+         eor   (<@auxdst+1), y
+@auxdst  sta   $FD00, y              ; SMC high byte
+         txa
+         lsr
+         tax
+         tya
+         ror
+         tay
+         bcc   @loop2
+         bne   @loop
+         lda   KBD
+         bmi   @exit
+         txa
+         bne   @loop1
+         beq   @exit                 ; always branches
+}
+dhgr_fx_end

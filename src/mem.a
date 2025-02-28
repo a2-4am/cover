@@ -1,0 +1,54 @@
+;license:MIT
+;(c) 2025 by 4am
+;
+
+SwapZP
+; out:   X=0
+         ldx   #0
+-        ldy   ZP_BACKUP, x
+         lda   $00, x
+         sty   $00, x
+         sta   ZP_BACKUP, x
+         inx
+         bne   -
+         rts
+
+ClearHGR1
+         ldx   #$20
+ClearMem
+; in:    X = number of pages
+;        start page is always $2000
+         ldy   #$20
+         sty   <PTR+1
+         ldy   #$00
+         sty   <PTR
+         ;Y=0
+         tya
+@clearloop
+         sta   (<PTR), y
+         iny
+         bne   @clearloop
+         inc   <PTR+1
+         dex
+         bne   @clearloop
+         rts
+
+CopyToAuxMem
+; in:    X = number of pages
+;        start page is always $2000
+         ldy   #$20
+         sty   <PTR+1
+         ldy   #$00
+         sty   <PTR
+         sta   WRITEAUXMEM
+         ;Y=0
+@copyloop
+         lda   (<PTR), y
+         sta   (<PTR), y
+         iny
+         bne   @copyloop
+         inc   <PTR+1
+         dex
+         bne   @copyloop
+         sta   WRITEMAINMEM
+         rts

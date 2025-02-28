@@ -1,0 +1,138 @@
+;license:MIT
+;(c) 2025 by 4am
+;
+         cld
+         +READ_ROM_NO_WRITE
+         lda   #$95                  ; Ctrl-U to shut down 80-column firmware
+         jsr   ROM_COUT
+         sta   PRIMARYCHARSET
+         sta   CLR80VID
+         sta   STOREOFF
+         sta   READMAINMEM
+         sta   WRITEMAINMEM
+         sta   SETSTDZP
+         jsr   ROM_NORMAL
+         jsr   ROM_TEXT
+         jsr   ROM_HOME
+         jsr   ROM_IN0
+         jsr   ROM_PR0
+;
+; Ensure ProDOS has a current prefix, otherwise opening any file will fail,
+; which is bad. If launched from Bitsy Bye, there will be no current prefix.
+; In that case, we get the boot volume name, then set the prefix to that.
+; PREFIX_BUFFER ($40 bytes) is clobbered but may be reused after.
+;
+prefix_loop
+         jsr   PRODOS_MLI
+op_prefix
+         !byte CMD_GETPREFIX         ; self-modified
+         !word parm_prefix
+         ldx   PREFIX_BUFFER         ; if we have a prefix, we're done
+         bne   prefix_loop_end
+
+         ; no prefix (len=0) so get boot volume name instead
+         lda   PRODOS_BOOT_UNIT
+         sta   parm_online_unit
+         jsr   PRODOS_MLI
+         !byte CMD_ONLINE
+         !word parm_online
+
+         lda   PREFIX_BUFFER + 1
+         and   #$0F
+         tax
+         inx
+         stx   PREFIX_BUFFER
+         lda   #$2F
+         sta   PREFIX_BUFFER + 1
+         ; PREFIX_BUFFER is now a length-prefixed string
+         ; of '/' + the boot volume name
+
+         dec   op_prefix             ; -> CMD_SETPREFIX
+         bne   prefix_loop           ; always branches
+
+parm_prefix
+         !byte 1
+         !word PREFIX_BUFFER
+parm_online
+         !byte 2
+parm_online_unit
+         !byte SELF_MODIFIED_BYTE
+         !word PREFIX_BUFFER + 1
+
+prefix_loop_end
+
+         ; relocate program code
+-        inc   FM+2
+         inc   FMDEST+2
+         lda   FM+2
+         cmp   #>LastMover
+         bcc   -
+         ldx   #0
+FM       lda   FirstMover, x
+FMDEST   sta   RELOC, x
+         inx
+         bne   FM
+         dec   FM+2
+         dec   FMDEST+2
+         lda   FMDEST+2
+         cmp   #>RELOC
+         bcs   FM
+
+         ; build EnableAccelerator and DisableAccelerator functions
+         ; and copy them into place
+         jsr   BuildAcceleratorFunction
+         +ST16 @accelSrc
+         dex
+-
+@accelSrc=*+1
+         lda   SELF_MODIFIED_WORD, x
+         sta   DisableAccelerator, x
+         dex
+         bpl   -
+
+         lda   #%00000000
+         sta   MachineStatus
+
+         ; slot scan for VidHD card
+         sta   SETC3ROM
+         jsr   HasVidHDCard
+         sta   CLRC3ROM
+         ror   MachineStatus
+
+         ; check for IIgs
+         lda   ROM_MACHINEID
+         cmp   #$06
+         bne   @NotGS
+         sec
+         jsr   ROM_GSID
+         bcs   @NotGS
+         ; save current colors then set to white-on-black (IIgs only)
+         lda   TBCOLOR
+         sta   SaveTBColor
+         lda   CLOCKCTL
+         sta   SaveClockCtl
+         and   #$F0
+         sta   CLOCKCTL
+         lda   #$F0
+         sta   TBCOLOR
+         sec
+         +HIDE_NEXT_BYTE
+@NotGS   clc
+         ror   MachineStatus
+
+         ; ask ProDOS if we have 128K
+         lda   PRODOS_MACHID
+         and   #PRODOS_MACHID_128K
+         cmp   #PRODOS_MACHID_128K
+         bne   @no128k
+         sec
+         +HIDE_NEXT_BYTE
+@no128k  clc
+         ror   MachineStatus
+
+         ; build a machine-specific VBL function, which is used for
+         ; toggling DHGR mode (really! everything is terrible!)
+         jsr   BuildVBLFunction
+
+         ; exit via relocated program code
+         jmp   Start

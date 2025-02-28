@@ -1,0 +1,12 @@
+;license:MIT
+;(c) 2025 by 4am
+;
+
+shr_filename
+         +PSTRING "COVER.SHR"
+dhgr_filename
+         +PSTRING "COVER.A2FC"
+hgr_filename
+         +PSTRING "COVER.HGR"
+next_filename
+         +PSTRING "IMPROB.SYSTEM"

@@ -1,0 +1,91 @@
+;license:MIT
+;(c) 2025 by 4am
+;
+
+SELF_MODIFIED_BYTE        = $FD
+SELF_MODIFIED_WORD        = $FDFD
+
+; ProDOS addresses
+PRODOS_MLI                = $BF00
+PRODOS_BOOT_UNIT          = $BF30
+PRODOS_MACHID             = $BF98
+
+; ProDOS constants
+PRODOS_MACHID_128K        = %00110000
+CMD_QUIT                  = $65
+CMD_ONLINE                = $C5
+CMD_SETPREFIX             = $C6
+CMD_GETPREFIX             = $C7
+CMD_OPEN                  = $C8
+CMD_READ                  = $CA
+CMD_WRITE                 = $CB
+CMD_CLOSE                 = $CC
+CMD_SEEK                  = $CE
+
+; ROM routines and addresses
+ROM_REBOOT                = $FAA6
+ROM_TEXT                  = $FB2F
+ROM_MACHINEID             = $FBB3
+ROM_MACHINE2C             = $FBC0
+ROM_HOME                  = $FC58
+ROM_WAIT                  = $FCA8
+ROM_CROUT                 = $FD8E
+ROM_COUT                  = $FDED
+ROM_GSID                  = $FE1F
+ROM_NORMAL                = $FE84    ; NORMAL text (instead of INVERSE or FLASH)
+ROM_IN0                   = $FE89    ; SETKBD
+ROM_PR0                   = $FE93    ; SETVID
+
+; soft switches
+KBD                       = $C000    ; last key pressed (if any)
+CLEARKBD                  = $C010    ; clear last key pressed
+STOREOFF                  = $C000    ; STA then use C002-C005 to control $0200..$BFFF
+STOREON                   = $C001    ; STA then use C054/C055 to control $2000..$3FFF
+READMAINMEM               = $C002    ; STA to read from main mem ($0200..$BFFF) (requires STOREOFF)
+READAUXMEM                = $C003    ; STA to read from aux mem ($0200..$BFFF)  (requires STOREOFF)
+WRITEMAINMEM              = $C004    ; STA to write to main mem ($0200..$BFFF)  (requires STOREOFF)
+WRITEAUXMEM               = $C005    ; STA to write to aux mem ($0200..$BFFF)   (requires STOREOFF)
+SETSTDZP                  = $C008    ; STA to r/w from main mem stack and zero page ($0000..$01FF)
+CLRC3ROM                  = $C00A    ; STA to use internal Slot 3 ROM (required to use 128K and DHGR)
+SETC3ROM                  = $C00B    ; STA to use external Slot 3 ROM (required to detect VidHD in slot 3)
+CLR80VID                  = $C00C    ; STA to use 40 columns (also used to get out of DHGR mode)
+SET80VID                  = $C00D    ; STA to use 80 columns (also used to get into DHGR mode)
+PRIMARYCHARSET            = $C00E    ; STA to use no-mousetext character set
+SLOT3STATUS               = $C017    ; bit 7 only
+MONOCOLOR                 = $C021    ; IIgs bit 7 switches composite mono/color modes
+TBCOLOR                   = $C022    ; IIgs text foreground and background colors (also VidHD but write-only)
+NEWVIDEO                  = $C029    ; IIgs graphics modes (also VidHD)
+SPEAKER                   = $C030    ; chirp chirp
+CLOCKCTL                  = $C034    ; bits 0-3 are IIgs border color (also VidHD but write-only)
+SHADOW                    = $C035    ; IIgs auxmem-to-bank-E1 shadowing (also VidHD but write-only)
+GFXMODE                   = $C050
+TEXTMODE                  = $C051
+FULLGFX                   = $C052
+MIXEDGFX                  = $C053
+PAGE1                     = $C054    ; page 1 (affects text, HGR, DHGR)
+PAGE2                     = $C055    ; page 2 (affects text, HGR, DHGR)
+LORESGFX                  = $C056
+HIRESGFX                  = $C057
+DHIRESON                  = $C05E    ; double hi-res on switch
+DHIRESOFF                 = $C05F    ; double hi-res off switch
+
+; application addresses
+PREFIX_BUFFER             = $0280    ; $40 bytes (only during startup)
+PRODOS_BUFFER             = $1C00    ; $400 bytes
+RELOC                     = $0800    ; $1400 bytes max
+ZP_BACKUP                 = $BE00    ; $100 bytes
+
+; application globals
+PTR                       = $FE      ; 2 bytes
+MachineStatus             = $0300    ; 1 byte
+SaveTBColor = MachineStatus+1        ; 1 byte
+SaveClockCtl = SaveTBColor+1         ; 1 byte
+DisableAccelerator = SaveClockCtl+1  ; $4C bytes
+EnableAccelerator = DisableAccelerator+3
+
+; bitmasks for MachineStatus
+HAS_128K                  = %10000000
+IS_IIGS                   = %01000000
+HAS_VIDHD                 = %00100000
+SUPPORTS_SHR              = %01100000
+SUPPORTS_DHGR             = %11100000

@@ -1,0 +1,33 @@
+;license:MIT
+;(c) 2025 by 4am
+;
+
+;------------------------------------------------------------------------------
+; LongWaitForKeyWithTimeout
+; wait for a long amount of time, or keypress, whichever comes first
+;
+; in:    X = number of iterations for an A=0 wait loop
+; out:   A,X = 0
+;        Y preserved
+;        N = 1 if key was pressed to exit early
+;        N = 0 if time ran out
+;------------------------------------------------------------------------------
+LongWaitForKeyWithTimeout
+         lda   #0
+-        jsr   WaitForKeyWithTimeout
+         bmi   +
+         dex
+         bne   -
++        rts
+
+WaitForKeyWithTimeout
+         sec
+@wait1   pha
+@wait2   sbc   #1
+         bne   @wait2
+         pla
+         bit   KBD
+         bmi   @exit
+         sbc   #1
+         bne   @wait1
+@exit    rts
